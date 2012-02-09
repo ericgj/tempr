@@ -25,35 +25,75 @@ module TemporalEnumerable
   end
   alias each_second each_seconds
   
+  def second(n)
+    time = nil
+    each_second(1,n) {|t| time = t; break}
+    time
+  end
+  
   def each_minutes(n=1, off=0, &b)
     each_seconds(n*60, off*60, &b)
   end
   alias each_minute each_minutes
+  
+  def minute(n)
+    time =nil
+    each_minute(1,n) {|t| time = t; break}
+    time
+  end
   
   def each_hours(n=1, off=0, &b)
     each_seconds(n*60*60, off*60*60, &b)
   end
   alias each_hour each_hours
   
-  #----------------- step by days
+  def hour(n)
+    time = nil
+    each_hour(1,n) {|t| time = t; break}
+    time
+  end
+  
+  # -----
+  
+  # step by days
   def each_days(n=1, off=0, &b)
     d0 = self.begin.to_date
     each_by_step(n, off, d0, lambda{|t,i| t+i}, &b)
   end
   alias each_day each_days
   
+  def day(n)
+    dt = nil
+    each_day(1,n) {|t| dt = t; break}
+    dt
+  end
+  
   def each_weeks(n=1, off=0, &b)
     each_days(n*7, off*7, &b)
   end
   alias each_week each_weeks
   
-  #----------------- step by weeks on a specific weekday
-  def each_wdays(wday, n=1, off=0, &b)
+  def week(n)
+    dt = nil
+    each_week(1,n) {|t| dt = t; break}
+    dt
+  end
+  
+  # -----
+  
+  # step by weeks on a specific weekday
+  def each_wdays(wd, n=1, off=0, &b)
     d0 = self.begin.to_date
-    d0+=((wday-d0.wday)%7)
+    d0+=((wd-d0.wday)%7)
     each_by_step(n*7, off*7, d0, lambda {|d,i| d + i}, &b)
   end
   alias each_wday each_wdays
+  
+  def wday(wd, n)
+    dt = nil
+    each_wday(wd,1,n) {|t| dt = t; break}
+    dt
+  end
   
   def each_sunday(   n=1, off=0, &b); each_wdays(Sun,n,off,&b); end
   def each_monday(   n=1, off=0, &b); each_wdays(Mon,n,off,&b); end
@@ -63,14 +103,32 @@ module TemporalEnumerable
   def each_friday(   n=1, off=0, &b); each_wdays(Fri,n,off,&b); end
   def each_saturday( n=1, off=0, &b); each_wdays(Sat,n,off,&b); end
   
-  #----------------- step by months
+  def sunday(   n); wday(Sun,n); end
+  def monday(   n); wday(Mon,n); end
+  def tuesday(  n); wday(Tue,n); end
+  def wednesday(n); wday(Wed,n); end
+  def thursday( n); wday(Thu,n); end
+  def friday(   n); wday(Fri,n); end
+  def saturday( n); wday(Sat,n); end
+
+  # -----
+  
+  # step by months
   def each_months(n=1, off=0, &b)
     d0 = self.begin.to_date
     each_by_step(n, off, d0, lambda {|d,i| d >> i}, &b)
   end
   alias each_month each_months
   
-  #----------------- step by years
+  def month(n)
+    dt = nil
+    each_month(1,n) {|t| dt = t; break}
+    dt
+  end
+  
+  # -----
+  
+  # step by years
   def each_years(n=1, off=0, &b)
     d0 = self.begin.to_date
     each_by_step( n, off, d0, 
@@ -80,9 +138,91 @@ module TemporalEnumerable
   end
   alias each_year each_years
   
+  def year(n)
+    dt = nil
+    each_year(1,n) {|t| dt = t; break}
+    dt
+  end
+  
+  # -----
+  
+  # date/time range intersection
+  
+  def intersection(other, precision=0)
+    if ( self.begin.respond_to?(:seconds) &&  self.end.respond_to?(:seconds)) ||
+       (other.begin.respond_to?(:seconds) && other.end.respond_to?(:seconds))
+      time_intersection(other,precision)
+
+    elsif ( self.begin.respond_to?(:days) &&  self.end.respond_to?(:days)) ||
+          (other.begin.respond_to?(:days) && other.end.respond_to?(:days))
+      date_intersection(other,precision)
+    
+    else
+      raise TypeError
+    end
+  end
+  
+  def & (other)
+    intersection(other)
+  end
+  
+  def time_intersection(other, precision=0)
+    trange1 = fuzz_time_range(self, precision)
+    trange2 = fuzz_time_range(other,precision)
+    b = [trange1.begin,trange2.begin].max
+    e = [trange1.end  ,trange2.end  ].min
+    if e < b
+      nil..nil
+    else
+      Range.new(b, e, self.exclude_end? && precision==0)
+    end
+  end
+  
+  def date_intersection(other, precision=0)
+    drange1 = fuzz_date_range(self, precision)
+    drange2 = fuzz_date_range(other,precision)
+    b = [drange1.begin,drange2.begin].max
+    e = [drange1.end  ,drange2.end  ].min
+    if e < b
+      nil..nil    # not sure this is the best way
+    else
+      Range.new(b, e, self.exclude_end? && precision==0).extend(self.class)
+    end 
+  end
+  
+  # probably should be private
+  def fuzz_time_range(range,precision)
+    if range.respond_to?(:begin) && range.respond_to?(:end)
+      Range.new(range.begin.to_time - precision,
+                range.end.to_time   + precision,
+                range.exclude_end?
+               )
+    else
+      Range.new(range.to_time - precision,
+                range.to_time + precision,
+                false
+               )
+    end    
+  end
+
+  # probably should be private
+  def fuzz_date_range(range,precision)
+    if range.respond_to?(:begin) && range.respond_to?(:end)
+      Range.new(range.begin.to_date - precision,
+                range.end.to_date   + precision,
+                range.exclude_end?
+               )
+    else
+      Range.new(range.to_date - precision,
+                range.to_date + precision,
+                false
+               )
+    end    
+  end
+  
   private
   
-  # iterator
+  # generic time/date iteration using step enumerator below
   def each_by_step(n,offset,initial,step_proc)
     accum = []
     offset_init = step_proc.call(initial,offset)
@@ -115,12 +255,15 @@ class Schedule
   attr_reader :events
   def events; @events ||= []; end
   
-  def add_event(event, time_range=nil, &expr)
-    e = Event.new(event,time_range,&expr)
+  def add_event(event, time=nil, duration={}, &expr)
+    e = Event.new(event,time,duration,&expr)
     events << e
     e
   end
 
+  # Probably, we should set range as a state of the schedule
+  # rather than pass it in to each of these methods
+  
   def each(range,&b)
     events.each(range,&b)
   end
@@ -162,25 +305,23 @@ class Schedule
     
     attr_accessor :name
     
-    def initialize(name, time=nil, &cond)
-      self.name = name
-      schedule(time, &cond)
+    def initialize(name, time=nil, mods={}, &cond)
+      self.name      = name
+      self.precision = mods.delete(:precision) || 0
+      schedule(&cond)
     end
     
-    def or(time=nil, &cond)
-      cond ||= lambda{|range| 
-                 if r = range_intersection(range, time)
-                   r.extend(TemporalEnumerable).each_minute
-                 else
-                   []
-                 end
+    def or(time=nil, mods={}, &cond)
+      cond ||= lambda {|range| 
+                  subrange = event_range(time,mods) 
+                  range.intersection(subrange, self.precision)
                }
       stack << cond
       self
     end
-    
-    def schedule(time=nil, &cond)
-      init_stack; self.or(time, &cond)
+        
+    def schedule(time=nil, mods={}, &cond)
+      init_stack; self.or(time, mods, &cond)
     end
     
     def each(range,&b)
@@ -199,41 +340,17 @@ class Schedule
       "#{name} (#{stack.size} conditions)"
     end
     
+    def event_range(time,mods)
+      dur = 
+    end
+    
+    
     private
     
     attr_reader :stack
     def stack; @stack ||= []; end
     def init_stack; @stack = nil; stack; end
-    
-    # TODO move these to TemporalEnumerable
-    # 
-    def range_intersection(range1, range2, precision=60*15)
-      trange1 = literal_range(range1,precision)
-      trange2 = literal_range(range2,precision)
-      b = [trange1.begin,trange2.begin].max
-      e = [trange1.end  ,trange2.end  ].min
-      if e < b
-        nil
-      else
-        Range.new(b, e)
-      end
-    end
-    
-    # convert single date/time to range +/- precision
-    def literal_range(range, precision=60*15)
-      if range.respond_to?(:begin) && range.respond_to?(:end)
-        time_range(range)
-      else
-        (range.to_time - precision/2)..(range.to_time + precision/2)
-      end
-    end
-       
-    # convert date to time range
-    def time_range(range)
-      return range if range.begin.respond_to?(:secs) && 
-                      range.end.respond_to?(:secs)
-      Range.new(range.begin.to_time, ((range.end+1).to_time)-1, range.exclude_end?)
-    end
+   
     
   end
   
@@ -253,6 +370,10 @@ if $0 == __FILE__
   
   puts 'every hour starting 2 hours from now, until the next midnight'
   dt.each_hours(1,2) do |t| break if t.day != dt.begin.day && t.hour ==0; puts t end
+  puts
+  
+  puts 'the fourth hour from now'
+  puts dt.hour(4)
   puts
   
   puts 'every 2 weeks from now until March'
