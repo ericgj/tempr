@@ -380,7 +380,7 @@ module Tempr
         s.offset          do |tm| 
                                Time.new( 
                                  tm.year,   tm.month, tm.day,
-                                 tm_p.hour, tm_p.min, tm_p.sec, tm.utc_offset
+                                 tm_p.hour, tm_p.min, tm_p.sec, (tm + s.step).utc_offset
                                )
                           end
         s.increment       { |tm,i| tm.to_time + i }
