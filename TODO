@@ -1,0 +1,19 @@
+Priorities
+  - gemify
+  - revise Scheduler to use this instead of Runt
+
+- Tests
+  - basic date range tests
+  - tests of limit_by and exception_procs
+  - tests of chained conditions
+  
+- Bugs
+  - daylight savings time/ timezone bug in `at_time`
+  
+- Documentation
+  - "single subrange" methods
+  
+- New Features
+  - `until` conditions
+  - reverse iteration for e.g. each_saturday(1,-1) == "each last saturday"
+  - implement cover? on SubRangeIterator to simplify usage of typical case

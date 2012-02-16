@@ -11,7 +11,7 @@ module Tempr
   # To generate a recurring hourly appointment at 2pm on the third Thursdays of each month in 2012:
   #
   #     range = (Date.civil(2012,1,1)...Date.civil(2013,1,1)).extend(Tempr::DateTimeRange)
-  #     subrange = range.each_month.each_thursday(3,2).at_time('2:00pm',60*60)
+  #     subrange = range.each_month.thursday(2).at_time('2:00pm',60*60)
   #
   # This gives you an enumerable you can iterate over:
   #
@@ -29,12 +29,21 @@ module Tempr
   #            2012-11-15 14:00:00 -0500...2012-11-15 15:00:00 -0500,
   #            2012-12-20 14:00:00 -0500...2012-12-20 15:00:00 -0500  ]
   #
+  # Or check for inclusion of a date/time:
+  #
+  #     subrange.any? {|r| r.cover?(Time.parse("2012-05-17 2:30pm")) }
+  #
   # Note that the order of the chained rules is important, they must be defined
   # from the widest to the narrowest date/time range.
   #
   # During iteration, each rule is applied on the array of ranges defined by the
   # previous rule.
   #
+  # The methods are roughly divided into methods for generating recurring subranges (e.g., "each_month"),
+  # and methods for finding a single subrange, by offset (e.g., "wednesday(1)" for the second wednesday)
+  #
+  # In both cases, an enumerable is returned so that you can continue to chain rules together.
+  #   
   module DateTimeRange
 
     # day of week shortcuts - as methods so accessible to mixin target classes
@@ -54,6 +63,9 @@ module Tempr
     def Fri ; self.Friday;    end
     def Sat ; self.Saturday;  end
 
+    def WEEKDAYS; [self.Mon, self.Tue, self.Wed, self.Thu, self.Fri]; end
+    def WEEKENDS; [self.Sat, self.Sun]; end
+    
     # month shortcuts - as methods so accessible to mixin target classes
     
     def January   ; Date::MONTHNAMES.index("January");   end
@@ -98,6 +110,8 @@ module Tempr
     end
     alias each_second each_seconds
     
+    def second(offset=0); each_seconds(1,offset).limit_to(1); end
+    
     # minutes iterator:
     # "every +n+ minutes, starting at +offset+ minutes, +dur+ minute intervals"
     #
@@ -108,6 +122,8 @@ module Tempr
     end
     alias each_minute each_minutes
     
+    def minute(offset=0); each_minutes(1,offset).limit_to(1); end
+    
     # hours iterator:
     # "every +n+ hours, starting at +offset+ hours, +dur+ hour intervals"
     #
@@ -117,6 +133,8 @@ module Tempr
       each_seconds(n*60*60, offset*60*60, dur*60*60)
     end
     alias each_hour each_hours
+    
+    def hour(offset=0); each_hours(1,offset).limit_to(1); end
     
     # days iterator:
     # "every +n+ days, starting at +offset+ days, +dur+ day intervals"
@@ -134,6 +152,8 @@ module Tempr
     end
     alias each_day each_days
     
+    def day(offset=0); each_day(1,offset).limit_to(1); end
+    
     # weeks iterator:
     # "every +n+ weeks, starting at +offset+ weeks, +dur+ week intervals"
     #
@@ -144,7 +164,9 @@ module Tempr
     end
     alias each_week each_weeks
     
-    # day-of-week iterator:
+    def week(offset=0); each_weeks(1,offset).limit_to(1); end
+    
+    # single day-of-week iterator:
     # "every +n+th weekday +wd+, starting at +offset+ weeks, +dur+ day intervals"
     #
     # +wd+ is required. Typically, `each_sunday`, `each_monday` called instead.
@@ -161,7 +183,7 @@ module Tempr
       end
     end
     alias each_wday each_wdays
-      
+              
     # "every +n+th Sunday, starting at +offset+ weeks, +dur+ day intervals"
     def each_sunday(   n=1, offset=0, dur=1); each_wdays(self.Sun,n,offset,dur); end
 
@@ -183,6 +205,55 @@ module Tempr
     # "every +n+th Saturday, starting at +offset+ weeks, +dur+ day intervals"
     def each_saturday( n=1, offset=0, dur=1); each_wdays(self.Sat,n,offset,dur); end
     
+    
+    def wday(wd,offset=0)
+      each_wdays(wd,1,offset).limit_to(1)
+    end
+    
+    def sunday(offset=0);    wday(self.Sun,offset); end
+    def monday(offset=0);    wday(self.Mon,offset); end
+    def tuesday(offset=0);   wday(self.Tue,offset); end
+    def wednesday(offset=0); wday(self.Wed,offset); end
+    def thursday(offset=0);  wday(self.Thu,offset); end
+    def friday(offset=0);    wday(self.Fri,offset); end
+    def saturday(offset=0);  wday(self.Sat,offset); end
+    
+    # multiple day-of-week iterator:
+    # "every days of the week +wdays+"
+    #
+    # For example, 
+    #     `range.each_days_of_week(range.Tue, range.Thu)`
+    #     # "every Tuesday and Thursday in range"
+    #
+    # if no parameter passed, identical to each_days
+    def each_days_of_week(*wdays)
+      if wdays.empty?
+        each_days
+      else
+        each_days.except {|dt| !wdays.include?(dt.wday) }
+      end
+    end
+    alias each_day_of_week each_days_of_week
+    
+    # every weekday
+    def each_weekdays
+      each_days_of_week(*self.WEEKDAYS)
+    end
+    alias each_weekday each_weekdays
+    
+    # every weekend (Saturday and Sunday)
+    def each_weekends
+      each_days_of_week(*self.WEEKENDS)
+    end
+    alias each_weekend each_weekends
+    
+    # every Friday, Saturday, and Sunday
+    def each_weekends_including_friday
+      each_days_of_week(*([self.Fri] + self.WEEKENDS))
+    end
+    alias each_weekend_including_friday each_weekends_including_friday
+    
+    
     # month iterator:
     # "every +n+ months, starting at +offset+ months, +dur+ month intervals"
     #
@@ -199,6 +270,8 @@ module Tempr
     end
     alias each_month each_months
     
+    def month(offset=0); each_months(1,offset).limit_to(1); end
+
     # month-of-year iterator:
     # "every +n+th month +nmonth+ grouped into one-month intervals"
     #
@@ -269,6 +342,9 @@ module Tempr
     end
     alias each_year each_years
     
+    def year(offset=0); each_year(1,offset).limit_to(1); end
+    
+    # ---
     
     # day-of-month iterator:
     # "every +nday+th day of the month, grouped into +dur+ day intervals"
@@ -358,6 +434,8 @@ module Tempr
       SubRangeIterator.new(self, &builder)
     end
     
+    # ---
+    
     # Iterators are defined by
     #   
     # - `range`:         base range (required)
@@ -366,11 +444,11 @@ module Tempr
     # - `offset`:        proc that adjusts start of adjusted range prior to iteration (optional)
     # - `increment`:     proc that defines scale of each step (required)
     # - `span`:          proc that defines duration of each returned subrange (required)
+    # - `except`:        proc(s) that don't yield subrange if true of current step date (but don't stop iteration)
+    # - `limit`:         stop iteration after self.limit steps (yields)
     #
     # TODO: 
-    # - `limit`:    stop iteration after self.limit steps
     # - `until`:    proc that stops iteration if true of current step date
-    # - `except`:   proc(s) that don't yield subrange if true of current step date (but don't stop iteration)
     #
     # Note that SubRangeIterator is coupled to DateTimeRange since it itself includes DateTimeRange (for chaining);
     # However, otherwise it could be used just as well on other (e.g. numeric) ranges
@@ -379,7 +457,7 @@ module Tempr
       include Enumerable
       include DateTimeRange
       
-      attr_accessor :range, :step
+      attr_accessor :range, :step, :limit
       def step;  @step ||= 1;   end
       
       # a bit hacky - used to extend concrete subranges
@@ -396,20 +474,41 @@ module Tempr
         yield self if block_given?
       end
     
+      # note: useful for chaining instead of step=
+      def step_by(n)
+        self.step = n
+        self
+      end
+      
+      # note: useful for chaining instead of limit=
+      def limit_to(n)
+        self.limit = n
+        self
+      end
+      
       def adjust_range(&p)
         self.range_proc = p
+        self
       end
       
       def offset(&p)
         self.offset_proc = p
+        self
       end
       
       def increment(&p)
         self.step_proc = p
+        self
       end
       
       def span(&p)
         self.span_proc = p
+        self
+      end
+      
+      def except(&p)
+        exception_procs << p
+        self
       end
       
       # Recursive madness...
@@ -432,21 +531,29 @@ module Tempr
       # 1. adjust base range
       # 2. get offset
       # 3. for each step,
-      #    3.1. find begin of next subrange (step_proc)
-      #    3.2. find end of next subrange (span_proc)
-      #    3.3. check if begin in adjusted base range, stop iteration if not
-      #    3.4. yield the subrange, extended with same modules as base range
+      #    3.1. if limit reached, break
+      #    3.2. find begin of next subrange (step_proc)
+      #    3.3. find end of next subrange (span_proc)
+      #    3.4. check if begin in adjusted base range, stop iteration if not
+      #    3.5. check if begin matches any exceptions (exception_procs)
+      #         3.5.1 if not, increment the yield count (i)
+      #         3.5.2 and yield the subrange, extended with same modules as base range
       def each_by_step(rng=self.range)
         rng = range_proc.call(rng)
   #      puts "each_by_step range: #{rng}"
         initial = offset_proc.call(rng.begin)
+        i=0
         by_step(self.step).each do |n|
+          break if self.limit && self.limit <= i
           next_begin = step_proc.call(initial,n)
           next_end   = span_proc.call(next_begin)
           if rng.respond_to?(:cover?) && !rng.cover?(next_begin) 
             raise StopIteration
           end
-          yield((next_begin...next_end).extend(*range_extensions))
+          unless exception_procs.any? {|except| except.call(next_begin)}
+            i+=1
+            yield((next_begin...next_end).extend(*range_extensions))
+          end
         end
       end
       
@@ -472,6 +579,8 @@ module Tempr
         @offset_proc ||= lambda {|dt| dt}
       end
       
+      def exception_procs; @exception_procs ||= []; end
+      
     end
     
   end
@@ -484,7 +593,7 @@ if $0 == __FILE__
   require 'pp'
   
    range = (Date.civil(2012,1,1)...Date.civil(2013,1,1)).extend(Tempr::DateTimeRange)
-   subrange = range.each_month.each_thursday(3,2).at_time('2:00pm',60*60)
+   subrange = range.each_month.thursday(2).at_time('2:00pm',60*60)
 
    pp subrange.to_a
    
