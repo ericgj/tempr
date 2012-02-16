@@ -215,7 +215,7 @@ module TimeSubRangeTests
                      last_result
       end
 
-      it 'each_minutes must return ranges starting up to 23:00:00 of the end date' do
+      it 'each_hours must return ranges starting up to 23:00:00 of the end date' do
         last_result = subject.each_hours.to_a.last
         assert_equal ( (Fixtures::ExclusiveDateRange.end.to_time - 60*60)...
                        Fixtures::ExclusiveDateRange.end.to_time ), 
@@ -242,7 +242,7 @@ module TimeSubRangeTests
                      last_result
       end
 
-      it 'each_minutes must return ranges starting up to 23:00:00 of the end date + 1' do
+      it 'each_hours must return ranges starting up to 23:00:00 of the end date + 1' do
         last_result = subject.each_hours.to_a.last
         assert_equal ( ((Fixtures::NonExclusiveDateRange.end+1).to_time - 60*60)...
                        (Fixtures::NonExclusiveDateRange.end+1).to_time ), 

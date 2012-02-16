@@ -511,6 +511,10 @@ module Tempr
         self
       end
       
+      def cover?(dt)
+        any? {|r| r.cover?(dt)}
+      end
+      
       # Recursive madness...
       # note this could possibly use cached results stored by #all method,
       # similar to Sequel
@@ -596,5 +600,5 @@ if $0 == __FILE__
    subrange = range.each_month.thursday(2).at_time('2:00pm',60*60)
 
    pp subrange.to_a
-   
+      
 end
