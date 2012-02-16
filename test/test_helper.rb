@@ -1,4 +1,6 @@
-require File.expand_path('../lib/date_time_range', File.dirname(__FILE__))
+require File.expand_path('../lib/tempr', File.dirname(__FILE__))
+
+gem "minitest" 
 
 require 'minitest/spec'
 MiniTest::Unit.autorun
