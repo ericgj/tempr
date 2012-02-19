@@ -2,6 +2,8 @@
 
 ## 0.1.1 / 2012-02-18
 
+- add `SubRangeIterator#cover?` shortcut
+- add `between_times`
 - `on_day` renamed `each_day_of_month`; deprecation warning
 - `at_time` renamed `each_time_of_day`; deprecation warning
 - add utc_offset param to `each_time_of_day`, `time_range`
