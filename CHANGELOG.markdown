@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2 / 2012-02-19
+
+- add `within?`, `subsume?`, `intersection_with`, `intersects?`
+
 ## 0.1.1 / 2012-02-18
 
 - add `SubRangeIterator#cover?` shortcut
