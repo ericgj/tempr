@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 / 2012-02-19
+
+- convert date to time ranges for date <-> time comparisons in `within?/subsume?/intersection_with`
+- fix behavior with exclusive ranges
+- add test cases, DRY up tests
+- add Rakefile, add rake to gemspec
+
 ## 0.1.2 / 2012-02-19
 
 - add `within?`, `subsume?`, `intersection_with`, `intersects?`
