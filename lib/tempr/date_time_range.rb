@@ -478,11 +478,13 @@ module Tempr
     # Set-like operations on two ranges
     
     # true iff self.begin <= other.begin and self.end >= other.end
+    # (with accomodations for exclusive-end ranges)
     def within?(other)
       range_within_other?(self,other)
     end
     
     # true iff other.begin <= self.begin and other.end >= self.end
+    # (with accomodations for exclusive-end ranges)
     def subsume?(other)
       range_within_other?(other,self)
     end
@@ -499,7 +501,7 @@ module Tempr
                other.respond_to?(:exclude_end?) && other.exclude_end?
              )
       unless max_begin > min_end
-        Range.new(max_begin, min_end, excl).extend(self.class)
+        Range.new(max_begin, min_end, excl).extend(DateTimeRange)
       end
     end
     
@@ -507,6 +509,8 @@ module Tempr
     def intersects?(other)
       !!intersection_with(other)
     end
+    
+    # ---
     
     # convenience wrapper for SubRangeIterator.new(self) { ... }
     def build_subrange(&builder)
