@@ -473,9 +473,55 @@ module Tempr
       end
     end
     
+    # ---
+    
+    # Set-like operations on two ranges
+    
+    # true iff self.begin <= other.begin and self.end >= other.end
+    def within?(other)
+      range_within_other?(self,other)
+    end
+    
+    # true iff other.begin <= self.begin and other.end >= self.end
+    def subsume?(other)
+      range_within_other?(other,self)
+    end
+    
+    # the range intersection of self and other
+    # note: returns nil if no intersection
+    def intersection_with(other)
+      max_begin = [self.begin,other.begin].max
+      min_end   = [self.end,other.end].min
+      excl = ( self.end == min_end && 
+               self.respond_to?(:exclude_end?) && self.exclude_end?
+             ) ||
+             ( other.end == min_end && 
+               other.respond_to?(:exclude_end?) && other.exclude_end?
+             )
+      unless max_begin > min_end
+        Range.new(max_begin, min_end, excl).extend(self.class)
+      end
+    end
+    
+    # true iff there is a range intersection of self and other
+    def intersects?(other)
+      !!intersection_with(other)
+    end
+    
     # convenience wrapper for SubRangeIterator.new(self) { ... }
     def build_subrange(&builder)
       SubRangeIterator.new(self, &builder)
+    end
+    
+    private
+    
+    def range_within_other?(r1,r2)      
+      if  r2.respond_to?(:exclude_end?) && r2.exclude_end? &&
+         !(r1.respond_to?(:exclude_end?) && r1.exclude_end?)
+        r1.begin >= r2.begin && r1.end < r2.end
+      else
+        r1.begin >= r2.begin && r1.end <= r2.end
+      end
     end
     
     # ---
