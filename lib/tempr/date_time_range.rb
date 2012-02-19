@@ -103,9 +103,9 @@ module Tempr
       build_subrange do |s|
         s.step    = n
         s.adjust_range { |r| time_range(r) }
-        s.offset       { |tm|   tm.to_time + offset }
-        s.increment    { |tm,i| tm.to_time + i }
-        s.span         { |tm| tm.to_time + dur }
+        s.offset       { |tm|   tm + offset }
+        s.increment    { |tm,i| tm + i }
+        s.span         { |tm| tm + dur }
       end
     end
     alias each_second each_seconds
@@ -353,7 +353,7 @@ module Tempr
     #
     # if no +dur+ parameter passed,
     #   "every +nday+th day of the month, grouped into one-day intervals"
-    def on_day(nday,dur=1)
+    def each_day_of_month(nday,dur=1)
       build_subrange do |s|
         s.step   = 1
         s.adjust_range   { |r| day_range(r) }
@@ -366,28 +366,61 @@ module Tempr
       end
     end
     
+    def on_day(nday,dur=1)
+      warn "Note #on_day is deprecated and will be removed in 0.2.0; use #each_day_of_month instead"
+      each_day_of_month(nday,dur)
+    end
+    
     # time-of-day iterator:
-    # "every day at +tm+, grouped into +dur+ second intervals"
+    # "every day at +tm+, grouped into +dur+ second intervals, in +utc_offset+"
     #
-    # +tm+ is any string that can be Time.parse'd. Note the date portion is ignored, if given.
+    # +tm+ is any string that can be Time.parse'd - relative to the local time and zone. 
+    # (Note the date portion is ignored, if given.)
     #
-    # if no +dur+ parameter passed, intervals are 'instantaneous' time ranges
-    def at_time(tm,dur=0)
+    # if no +dur+ passed, intervals are 'instantaneous' time ranges
+    # if no +utc_offset+ passed, process-local timezone is used.
+    def each_time_of_day(tm,dur=0,utc_offset=nil)
       tm_p = Time.parse(tm)
       build_subrange do |s|
         s.step    = 60*60*24
-        s.adjust_range    { |r| time_range(r) }        
-        s.offset          do |tm| 
+        s.adjust_range    { |r| time_range(r,utc_offset) }        
+        s.offset          do |t| 
                                Time.new( 
-                                 tm.year,   tm.month, tm.day,
-                                 tm_p.hour, tm_p.min, tm_p.sec, (tm + s.step).utc_offset
+                                 t.year,   t.month, t.day,
+                                 tm_p.hour, tm_p.min, tm_p.sec, 
+                                 (t + s.step).utc_offset
                                )
                           end
-        s.increment       { |tm,i| tm.to_time + i }
-        s.span            { |tm| tm.to_time + dur }
+        s.increment       { |t,i| t + i }
+        s.span            { |t|   t + dur }
       end
     end
-      
+    
+    def at_time(tm,dur=0,utc_offset=nil) 
+      warn "Note #at_time is deprecated and will be removed in 0.2.0; use #each_time_of_day instead"
+      each_time_of_day(tm,dur,utc_offset)
+    end
+    
+    # time-of-day iterator specifying time range:
+    # "every day between +tm0+ and +tm1+, in +utc_offset+"
+    #
+    # parameters are any string that can be Time.parse'd - relative to the local time and zone. 
+    # (Note the date portion is ignored, if given.)
+    #
+    # if +tm1+ < +tm0+, ranges are interpreted to go into the next day, e.g. 
+    #   `between_times "23:00", "01:00"`
+    def between_times(tm0,tm1,utc_offset=nil)
+      tm0_p = Time.parse(tm0)
+      tm1_p = Time.parse(tm1)
+      dur = if tm0_p <= tm1_p
+              tm1_p - tm0_p 
+            else
+              dur = 60*60*24 - (tm0_p - tm1_p)
+            end
+      each_time_of_day(tm0, dur, utc_offset)
+    end
+    
+    
     # ---
     
     # Helper methods - these are a bit hacky and possibly buggy.
@@ -415,17 +448,28 @@ module Tempr
     
     # unless already a time range,
     # convert to exclusive date range, and then to time range
+    #
+    # Times are local time unless +utc_offset+ is passed
+    #
     # For example,
     #
-    #   `2012-02-01..2012-02-29`   becomes
-    #   `2012-02-01 00:00:00 UTC...2012-03-01 00:00:00 UTC`
+    #   `time_range(2012-02-01..2012-02-29,'00:00')`   
+    #   #=> `2012-02-01 00:00:00 +00:00...2012-03-01 00:00:00 +00:00`
     #
-    def time_range(rng=self)
+    def time_range(rng=self,utc_offset=nil)
       if rng.begin.respond_to?(:sec) && rng.end.respond_to?(:sec)
-        rng.dup
+        utc_offset ||= rng.begin.utc_offset
+        Range.new( rng.begin.getlocal(utc_offset),
+                   rng.end.getlocal(utc_offset),
+                   rng.respond_to?(:exclude_end?) && rng.exclude_end?
+                 )
       else
         adj_rng = day_range(rng)
-        Range.new(adj_rng.begin.to_time, adj_rng.end.to_time, true)
+        b,e = adj_rng.begin, adj_rng.end
+        Range.new( Time.new(b.year,b.month,b.day,0,0,0,utc_offset), 
+                   Time.new(e.year,e.month,e.day,0,0,0,utc_offset), 
+                   true
+                 )
       end
     end
     
@@ -597,8 +641,18 @@ if $0 == __FILE__
   require 'pp'
   
    range = (Date.civil(2012,1,1)...Date.civil(2013,1,1)).extend(Tempr::DateTimeRange)
-   subrange = range.each_month.thursday(2).at_time('2:00pm',60*60)
+   subrange = range.each_month.thursday(2).each_time_of_day('2:00pm',60*60)
 
+   puts "base range time_range"
+   pp range.time_range(range,"+00:00")
+   
    pp subrange.to_a
+   puts
       
+   subrange2 = range.each_month.thursday(2).between_times('2:00pm','3:00pm')
+   
+   puts "between_times"
+   pp subrange2.to_a
+   puts
+   
 end
