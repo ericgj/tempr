@@ -492,13 +492,14 @@ module Tempr
     # the range intersection of self and other
     # note: returns nil if no intersection
     def intersection_with(other)
-      max_begin = [self.begin,other.begin].max
-      min_end   = [self.end,other.end].min
-      excl = ( self.end == min_end && 
-               self.respond_to?(:exclude_end?) && self.exclude_end?
+      r1,r2 = matched_range_types(self, other)
+      max_begin = [r1.begin,r2.begin].max
+      min_end   = [r1.end,  r2.end  ].min
+      excl = ( r1.end == min_end && 
+               r1.respond_to?(:exclude_end?) && r1.exclude_end?
              ) ||
-             ( other.end == min_end && 
-               other.respond_to?(:exclude_end?) && other.exclude_end?
+             ( r2.end == min_end && 
+               r2.respond_to?(:exclude_end?) && r2.exclude_end?
              )
       unless max_begin > min_end
         Range.new(max_begin, min_end, excl).extend(DateTimeRange)
@@ -519,7 +520,17 @@ module Tempr
     
     private
     
-    def range_within_other?(r1,r2)      
+    def matched_range_types(rng,oth)
+      if ( rng.begin.respond_to?(:sec) && rng.end.respond_to?(:sec) ) ||
+         ( oth.begin.respond_to?(:sec) && oth.end.respond_to?(:sec) )
+        [ time_range(rng), time_range(oth) ]
+      else
+        [ day_range(rng), day_range(oth) ]
+      end
+    end
+    
+    def range_within_other?(rng,oth)
+      r1, r2 = matched_range_types(rng,oth)
       if  r2.respond_to?(:exclude_end?) && r2.exclude_end? &&
          !(r1.respond_to?(:exclude_end?) && r1.exclude_end?)
         r1.begin >= r2.begin && r1.end < r2.end
