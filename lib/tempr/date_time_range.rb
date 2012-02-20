@@ -31,6 +31,10 @@ module Tempr
   #
   # Or check for inclusion of a date/time:
   #
+  #     subrange.cover? Time.parse("2012-05-17 2:30pm")
+  #
+  # which is a shortcut for
+  #
   #     subrange.any? {|r| r.cover?(Time.parse("2012-05-17 2:30pm")) }
   #
   # Note that the order of the chained rules is important, they must be defined
