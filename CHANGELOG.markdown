@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.4 / 2012-02-20
+
+- add range adjacency methods (`precedes?`, `succeeds?`, `adjacent_to?`)
+
 ## 0.1.3 / 2012-02-19
 
 - convert date to time ranges for date <-> time comparisons in `within?/subsume?/intersection_with`
