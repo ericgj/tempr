@@ -515,6 +515,22 @@ module Tempr
       !!intersection_with(other)
     end
     
+    # true iff self immediately precedes other range
+    def precedes?(other)
+      range_precedes(self, other)
+    end
+    
+    # true iff self immediately succeeds (follows) other range
+    def succeeds?(other)
+      range_precedes(other, self)
+    end
+    alias follows? succeeds?
+    
+    # true iff self either succeeds or follows other range
+    def adjacent_to?(other)
+      succeeds?(other) || precedes?(other)
+    end
+    
     # ---
     
     # convenience wrapper for SubRangeIterator.new(self) { ... }
@@ -541,6 +557,18 @@ module Tempr
       else
         r1.begin >= r2.begin && r1.end <= r2.end
       end
+    end
+    
+    # note that date ranges will always be adjusted to exclude the end,
+    # so only inclusive time ranges will need to add +1 second to check adjacency
+    def range_precedes(rng,oth)
+      r1, r2 = matched_range_types(rng,oth)
+      diff = if r1.respond_to?(:exclude_end?) && r1.exclude_end?
+               0
+             else
+               1
+             end
+      (r1.end + diff) == r2.begin
     end
     
     # ---
